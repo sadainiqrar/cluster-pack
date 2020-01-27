@@ -206,7 +206,6 @@ export default function(width, height) {
   const zoom = zx < zy ? zx : zy;
   for (var i = 0; i != circles; i++)
     radiuses.push(Math.random() * (max_r - min_r) + min_r);
-  var packer = new Packer(radiuses, ratio);
   var solved = solve(radiuses, ratio);
   const list2 = solved.map(circle=> {
     const {r,c} = circle
