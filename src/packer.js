@@ -1,54 +1,93 @@
 /* eslint-disable */
 
-// ===========================
-// ancillary geometric classes
-// ===========================
-var Point = function(x, y) {
-  this.x = x;
-  this.y = y;
-};
+function normalize(point) {
+  return Math.sqrt(point.x * point.x + point.y * point.y);
+}
 
-Point.prototype = {
-  dist: function(p) {
-    return this.vect(p).norm();
-  },
-  vect: function(p) {
-    return new Point(p.x - this.x, p.y - this.y);
-  },
-  norm: function(p) {
-    return Math.sqrt(this.x * this.x + this.y * this.y);
-  },
-  add: function(v) {
-    return new Point(this.x + v.x, this.y + v.y);
-  },
-  mult: function(a) {
-    return new Point(this.x * a, this.y * a);
-  }
-};
-var Circle = function(radius, center) {
-  this.r = radius;
-  this.c = center;
-};
+function vector(point1, point2) {
+  return { x: point2.x - point1.x, y: point2.y - point1.y };
+}
 
-Circle.prototype = {
-  surface: function() {
-    return Math.PI * this.r * this.r;
-  },
-  distance: function(circle) {
-    return this.c.dist(circle.c) - this.r - circle.r;
-  }
-};
+function point(x, y) {
+  return { x, y };
+}
 
-// =========================
-// circle packer lives here!
+function circle(r, p) {
+  return { r, c: p };
+}
 
+export function pointDistance(point1, point2) {
+  return normalize(vector(point1, point2));
+}
+
+export function circleDistance(circle1, circle2) {
+  return pointDistance(circle1.c, circle2.c) - circle1.r - circle2.r;
+}
+
+function surfaceArea(r) {
+  return Math.PI * Math.pow(r, 2);
+}
+
+export function multiply(p, n) {
+  return { x: p.x * n, y: p.y * n };
+}
+
+export function add(point1, point2) {
+  return { x: point1.x + point2.x, y: point1.y + point2.y };
+}
+
+// approximate a segment with an "infinite" radius circle
+function bounding_circle(x0, y0, x1, y1, w, h, bounding_r) {
+  const xm = Math.abs((x1 - x0) * w);
+  const ym = Math.abs((y1 - y0) * h);
+  const m = xm > ym ? xm : ym;
+  const theta = Math.asin(m / 4 / bounding_r);
+  const r = bounding_r * Math.cos(theta);
+  return circle(
+    bounding_r,
+    point(
+      (r * (y0 - y1)) / 2 + ((x0 + x1) * w) / 4,
+      (r * (x1 - x0)) / 2 + ((y0 + y1) * h) / 4
+    )
+  );
+}
+
+// return the corner placements for two circles
+function corner(radius, c1, c2, w, h) {
+  let u = vector(c1.c, c2.c); // c1 to c2 vector
+  const A = normalize(u);
+  if (A == 0) return []; // same centers
+  u = multiply(u, 1 / A); // c1 to c2 unary vector
+  // compute c1 and c2 intersection coordinates in (u,v) base
+  const B = c1.r + radius;
+  const C = c2.r + radius;
+  if (A > B + C) return []; // too far apart
+  const x = (A + (B * B - C * C) / A) / 2;
+  const y = Math.sqrt(B * B - x * x);
+  const base = add(c1.c, multiply(u, x));
+
+  const res = [];
+  const p1 = point(base.x - u.y * y, base.y + u.x * y);
+  const p2 = point(base.x + u.y * y, base.y - u.x * y);
+  if (in_rect(radius, p1, w, h)) res.push(circle(radius, p1));
+  if (in_rect(radius, p2, w, h)) res.push(circle(radius, p2));
+  return res;
+}
+
+// check if a circle is inside our rectangle
+function in_rect(radius, center, w, h) {
+  if (center.x - radius < -w / 2) return false;
+  if (center.x + radius > w / 2) return false;
+  if (center.y - radius < -h / 2) return false;
+  if (center.y + radius > h / 2) return false;
+  return true;
+}
 
 function compute(surface, circles, ratio) {
   // deduce starting dimensions from surface
   var bounding_r = Math.sqrt(surface) * 100; // "infinite" radius
   var w = Math.sqrt(surface * ratio);
   var h = w / ratio;
-  console.log('orientation: ', w, h)
 
   // place our bounding circles
   var placed = [
@@ -63,7 +102,7 @@ function compute(surface, circles, ratio) {
   while (unplaced.length > 0) {
     // compute all possible placements of the unplaced circles
     var lambda = {};
-    var circle = {};
+    var circle = [];
     for (var i = 0; i != unplaced.length; i++) {
       var lambda_min = 1e10;
       lambda[i] = -1e10;
@@ -71,7 +110,6 @@ function compute(surface, circles, ratio) {
       for (var j = 0; j < placed.length; j++)
         for (var k = j + 1; k < placed.length; k++) {
           var corners = corner(unplaced[i], placed[j], placed[k], w, h);
-
           // check each placement
           for (var c = 0; c != corners.length; c++) {
             // check for overlap and compute min distance
@@ -81,7 +119,7 @@ function compute(surface, circles, ratio) {
               if (l == j || l == k) continue;
 
               // compute distance from current circle
-              var d = placed[l].distance(corners[c]);
+              var d = circleDistance(placed[l], corners[c]);
               if (d < 0) break; // circles overlap
 
               if (d < d_min) d_min = d;
@@ -116,24 +154,25 @@ function compute(surface, circles, ratio) {
     placed.push(circle[i_max]);
   }
   placed.splice(0, 4);
-  return placed;
+  return { placed, w, h };
 }
 
 function solve(circles, ratio) {
   // compute total surface of the circles
-  var surface = 0;
-  for (var i = 0; i != circles.length; i++) {
-    surface += Math.PI * Math.pow(circles[i], 2);
-  }
+  let surface = circles.reduce((final, radii) => {
+    return final + surfaceArea(radii);
+  }, 0);
 
   // set a suitable precision
-  var limit = surface / 1000;
+  const limit = surface / 1000;
 
-  var step = surface / 2;
+  let step = surface / 2;
+
   var res = [];
+
   while (step > limit) {
     var placement = compute(surface, circles, ratio);
-    if (placement.length != circles.length) {
+    if (placement.placed.length != circles.length) {
       surface += step;
     } else {
       res = placement;
@@ -144,78 +183,22 @@ function solve(circles, ratio) {
   return res;
 }
 
-// approximate a segment with an "infinite" radius circle
-function bounding_circle(x0, y0, x1, y1, w, h, bounding_r) {
-  var xm = Math.abs((x1 - x0) * w);
-  var ym = Math.abs((y1 - y0) * h);
-  var m = xm > ym ? xm : ym;
-  var theta = Math.asin(m / 4 / bounding_r);
-  var r = bounding_r * Math.cos(theta);
-  return new Circle(
-    bounding_r,
-    new Point(
-      (r * (y0 - y1)) / 2 + ((x0 + x1) * w) / 4,
-      (r * (x1 - x0)) / 2 + ((y0 + y1) * h) / 4
-    )
-  );
-}
-
-// return the corner placements for two circles
-function corner(radius, c1, c2, w, h) {
-  var u = c1.c.vect(c2.c); // c1 to c2 vector
-  var A = u.norm();
-  if (A == 0) return []; // same centers
-  u = u.mult(1 / A); // c1 to c2 unary vector
-  // compute c1 and c2 intersection coordinates in (u,v) base
-  var B = c1.r + radius;
-  var C = c2.r + radius;
-  if (A > B + C) return []; // too far apart
-  var x = (A + (B * B - C * C) / A) / 2;
-  var y = Math.sqrt(B * B - x * x);
-  var base = c1.c.add(u.mult(x));
-
-  var res = [];
-  var p1 = new Point(base.x - u.y * y, base.y + u.x * y);
-  var p2 = new Point(base.x + u.y * y, base.y - u.x * y);
-  if (in_rect(radius, p1, w,h)) res.push(new Circle(radius, p1));
-  if (in_rect(radius, p2,w,h)) res.push(new Circle(radius, p2));
-  return res;
-}
-
-// check if a circle is inside our rectangle
-function in_rect(radius, center, w, h) {
-  if (center.x - radius < -w / 2) return false;
-  if (center.x + radius > w / 2) return false;
-  if (center.y - radius < -h / 2) return false;
-  if (center.y + radius > h / 2) return false;
-  return true;
-}
-
-export default function(width, height) {
-
-  var circles = 100;
-  var ratio = width / height;
-  var min_r = 20;
-  var max_r = 80;
-  var radiuses = [];
-   const margin_factor = 0.0;
-  const dx = width/2;
-  const dy = height/2;
-  const zx = width  * (1-margin_factor) / width;
-  const zy = height * (1-margin_factor) / height;
-  const zoom = zx < zy ? zx : zy;
-  for (var i = 0; i != circles; i++)
-    radiuses.push(Math.random() * (max_r - min_r) + min_r);
-  var solved = solve(radiuses, ratio);
-  const list2 = solved.map(circle=> {
-    const {r,c} = circle
-    const {x,y} = c
-    const cx = (x+dx)*zoom
-    const cy = (y+dy)*zoom
-    const cr = r*zoom
+export default function(radiuses = [], width, height, spacingFactor = 0) {
+  const ratio = width / height;
+  const { placed, w, h } = solve(radiuses, ratio);
+  const dx = w / 2;
+  const dy = h / 2;
+  const list2 = placed.map(circle => {
+    const { r, c } = circle;
+    const { x, y } = c;
+    const cx = (x + dx) * (1 + spacingFactor);
+    const cy = (y + dy) * (1 + spacingFactor);
+    const cr = r;
     return {
-      x: cx,y: cy,r: cr,
-    }
-  })
+      x: cx,
+      y: cy,
+      r: cr
+    };
+  });
   return list2;
 }
