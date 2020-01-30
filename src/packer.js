@@ -1,11 +1,11 @@
 /* eslint-disable */
 
-function normalize(point) {
-  return Math.sqrt(point.x * point.x + point.y * point.y);
+function normalize(p) {
+  return Math.sqrt(p.x * p.x + p.y * p.y);
 }
 
-function vector(point1, point2) {
-  return { x: point2.x - point1.x, y: point2.y - point1.y };
+function vector(p, q) {
+  return { x: q.x - p.x, y: q.y - p.y };
 }
 
 function point(x, y) {
@@ -16,8 +16,8 @@ function circle(r, p) {
   return { r, c: p };
 }
 
-export function pointDistance(point1, point2) {
-  return normalize(vector(point1, point2));
+export function pointDistance(p, q) {
+  return normalize(vector(p, q));
 }
 
 export function circleDistance(circle1, circle2) {
@@ -32,8 +32,8 @@ export function multiply(p, n) {
   return { x: p.x * n, y: p.y * n };
 }
 
-export function add(point1, point2) {
-  return { x: point1.x + point2.x, y: point1.y + point2.y };
+export function add(p, q) {
+  return { x: p.x + q.x, y: p.y + q.y };
 }
 
 // approximate a segment with an "infinite" radius circle
@@ -188,7 +188,7 @@ export default function(radiuses = [], width, height, spacingFactor = 0) {
   const { placed, w, h } = solve(radiuses, ratio);
   const dx = w / 2;
   const dy = h / 2;
-  const list2 = placed.map(circle => {
+  return placed.map(circle => {
     const { r, c } = circle;
     const { x, y } = c;
     const cx = (x + dx) * (1 + spacingFactor);
@@ -200,5 +200,4 @@ export default function(radiuses = [], width, height, spacingFactor = 0) {
       r: cr
     };
   });
-  return list2;
 }
