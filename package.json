@@ -1,6 +1,6 @@
 {
   "name": "box-circle-packer",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": false,
   "main": "./dist/index.js",
   "author": "Sadain Iqrar <sadain.abbasi@gmail.com>",
@@ -36,5 +36,12 @@
     "path": "^0.12.7",
     "webpack": "^4.41.2",
     "webpack-cli": "^3.2.1"
-  }
+  },
+  "keywords": [
+    "packing",
+    "circle packing",
+    "rectangle pack",
+    "dataviz",
+    "charts"
+  ]
 }
