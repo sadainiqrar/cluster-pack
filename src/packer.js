@@ -183,6 +183,14 @@ function solve(circles, ratio) {
   return res;
 }
 
+/**
+ * Circle Packer in Rectangle.
+ * @param {Array<Number>} radiuses - random sized circles Array.
+ * @param {Number} width - Width of Box.
+ * @param {Number} Height - Height of Box.
+ * @param {Number} spacingFactor - Spacing Between Circles.
+ * @return {Array<{ x, y, r }>} Array of Spaced Circles with [x,y] positions and Radius
+ */
 export default function(radiuses = [], width, height, spacingFactor = 0) {
   const ratio = width / height;
   const { placed, w, h } = solve(radiuses, ratio);
