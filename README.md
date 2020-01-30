@@ -1,11 +1,5 @@
 # box-circle-packer
 
-[![npm download][download-image]][download-url]
-
-[download-image]: https://img.shields.io/npm/dm/react-tooltip.svg?style=flat-square
-[download-url]: https://npmjs.org/package/box-circle-packer
-
-
 ## Installation
 
 ```sh
